@@ -1,0 +1,120 @@
+//SftpService.cs – Servicio para subir y descargar por SFTP. instalar dotnet add package SSH.NET
+
+using Renci.SshNet;
+
+namespace WebAPI_SubirBarjarFicheros.Services
+{
+    public class SftpService
+    {
+        private readonly string host = "tu.servidor.sftp";
+        private readonly int port = 22;
+        private readonly string username = "usuario";
+        private readonly string password = "contraseña";
+
+        public void SubirArchivo(Stream fileStream, string remotePath)
+        {
+            using var sftp = new SftpClient(host, port, username, password);
+            sftp.Connect();
+            sftp.UploadFile(fileStream, remotePath);
+            sftp.Disconnect();
+        }
+
+        public byte[] DescargarArchivo(string remotePath)
+        {
+            using var sftp = new SftpClient(host, port, username, password);
+            sftp.Connect();
+            using var memory = new MemoryStream();
+            sftp.DownloadFile(remotePath, memory);
+            sftp.Disconnect();
+            return memory.ToArray();
+        }
+    }
+}
+
+
+
+//Registra el servicio en en Program.cs
+builder.Services.AddSingleton<SftpService>();
+
+
+/*
+Utiliza el servicio en el controlador
+*/
+
+private readonly SftpService _sftpService;
+
+public FicherosController(IWebHostEnvironment webHostEnvironment, SftpService sftpService)
+{
+    _webHostEnvironment = webHostEnvironment;
+    _sftpService = sftpService;
+}
+
+[HttpPost("subirDocumentoSftp")]
+public ActionResult SubirDocumentoSftp([FromForm] IFormFile fichero)
+{
+    try
+    {
+        using var stream = fichero.OpenReadStream();
+        string remotePath = "/ruta/remota/" + fichero.FileName;
+        _sftpService.SubirArchivo(stream, remotePath);
+        return Ok("Archivo subido por SFTP correctamente.");
+    }
+    catch (Exception ex)
+    {
+        return BadRequest(ex.Message);
+    }
+}
+
+[HttpPost("bajarDocumentoSftp")]
+public ActionResult BajarDocumentoSftp([FromForm] string nombreFichero)
+{
+    try
+    {
+        string remotePath = "/ruta/remota/" + nombreFichero;
+        var bytes = _sftpService.DescargarArchivo(remotePath);
+        return File(bytes, "application/octet-stream", nombreFichero);
+    }
+    catch (Exception)
+    {
+        return NotFound();
+    }
+}
+
+
+
+/*
+Configurar Reverse Proxy con Nginx
+Asumir que la API corre en http://localhost:5000
+*/
+sudo nano /etc/nginx/sites-available/mi-api
+server {
+    listen 80;
+    server_name miapi.ejemplo.com;
+
+    location / {
+        proxy_pass         http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header   Upgrade $http_upgrade;
+        proxy_set_header   Connection keep-alive;
+        proxy_set_header   Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+/*
+Activa el sitio
+*/
+sudo ln -s /etc/nginx/sites-available/mi-api /etc/nginx/sites-enabled/
+sudo systemctl restart nginx
+
+/*
+Estructura de carpetas
+WebAPI_SubirBarjarFicheros/
+├── Controllers/
+│   └── FicherosController.cs
+├── Services/
+│   └── SftpService.cs
+├── Program.cs
+├── WebAPI_SubirBarjarFicheros.csproj
+
+*/
+
