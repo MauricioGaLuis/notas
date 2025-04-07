@@ -1,0 +1,105 @@
+//modelo
+using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
+
+namespace WebApp.Models
+{
+    public class FileUploadModel
+    {
+        [Required]
+        [Display(Name = "Seleccione un archivo")]
+        public IFormFile File { get; set; }
+    }
+}
+----------------------------
+
+//Controlador
+
+using Microsoft.AspNetCore.Mvc;
+using System.IO;
+using System.Threading.Tasks;
+using WebApp.Models;
+
+namespace WebApp.Controllers
+{
+    public class FileUploadController : Controller
+    {
+        private readonly string _targetFolder = "UploadedFiles";
+
+        [HttpGet]
+        public IActionResult Index()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Index(FileUploadModel model)
+        {
+            if (ModelState.IsValid && model.File != null)
+            {
+                var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", _targetFolder);
+                if (!Directory.Exists(path))
+                    Directory.CreateDirectory(path);
+
+                var filePath = Path.Combine(path, model.File.FileName);
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await model.File.CopyToAsync(stream);
+                }
+
+                ViewBag.Message = "Archivo subido con éxito.";
+                return View();
+            }
+
+            ViewBag.Message = "Error al subir el archivo.";
+            return View(model);
+        }
+    }
+}
+
+--------------------
+//vista 
+
+@model WebApp.Models.FileUploadModel
+@{
+    ViewData["Title"] = "Subir archivo";
+}
+
+<h2>Subir archivo</h2>
+
+<form asp-controller="FileUpload" asp-action="Index" method="post" enctype="multipart/form-data">
+    <div class="form-group">
+        <label asp-for="File"></label>
+        <input asp-for="File" type="file" class="form-control" />
+        <span asp-validation-for="File" class="text-danger"></span>
+    </div>
+    <button type="submit" class="btn btn-primary">Subir</button>
+</form>
+
+@if (ViewBag.Message != null)
+{
+    <div class="alert alert-info mt-3">
+        @ViewBag.Message
+    </div>
+}
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}
+
+//startup
+
+public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+{
+    // ...
+    app.UseStaticFiles();
+    app.UseRouting();
+    app.UseEndpoints(endpoints =>
+    {
+        endpoints.MapControllerRoute(
+            name: "default",
+            pattern: "{controller=FileUpload}/{action=Index}/{id?}");
+    });
+}
+
+
