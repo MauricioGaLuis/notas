@@ -130,3 +130,50 @@ public async Task<IActionResult> UploadFromFtp(string ftpHost, string ftpUser, s
 
     return View("Upload");
 }
+////////////////////////////////////////////////////////////////////////////////////////////////7
+[HttpPost]
+public async Task<IActionResult> UploadToFtp(FileUploadViewModel model, string ftpHost, string ftpUser, string ftpPass)
+{
+    if (model.File == null || model.File.Length == 0)
+    {
+        ViewBag.Message = "Por favor selecciona un archivo.";
+        return View("Upload");
+    }
+
+    try
+    {
+        // Crea la configuración de conexión FTP
+        var config = new FtpConfig
+        {
+            // Puedes activar TLS/SSL si lo necesitas
+            EncryptionMode = FtpEncryptionMode.None, 
+            DataConnectionType = FtpDataConnectionType.AutoPassive
+        };
+
+        var options = new FtpClientOptions
+        {
+            Host = ftpHost,
+            Credentials = new NetworkCredential(ftpUser, ftpPass),
+            Config = config
+        };
+
+        using var ftpClient = new FtpClient(options);
+        await ftpClient.ConnectAsync();
+
+        // Prepara el archivo para enviar
+        using var fileStream = model.File.OpenReadStream();
+        string remotePath = "/uploads/" + model.File.FileName; // Asegúrate de que este directorio exista en tu servidor FTP
+
+        var result = await ftpClient.UploadStreamAsync(fileStream, remotePath, FtpRemoteExists.Overwrite);
+
+        ViewBag.Message = result.IsSuccess
+            ? $"Archivo '{model.File.FileName}' subido exitosamente al servidor FTP."
+            : $"No se pudo subir el archivo. Resultado: {result.Result}";
+    }
+    catch (Exception ex)
+    {
+        ViewBag.Message = $"Error: {ex.Message}";
+    }
+
+    return View("Upload");
+}
