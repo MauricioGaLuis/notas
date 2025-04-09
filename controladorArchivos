@@ -86,3 +86,47 @@ namespace FileUploadDownloadApp.Controllers
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+using FluentFTP;
+using System.Net;
+
+[HttpPost]
+public async Task<IActionResult> UploadFromFtp(string ftpHost, string ftpUser, string ftpPass, string remotePath)
+{
+    try
+    {
+        // Ruta local para guardar
+        string uploadPath = Path.Combine(_environment.WebRootPath, "uploads");
+        Directory.CreateDirectory(uploadPath);
+
+        string fileName = Path.GetFileName(remotePath);
+        string localPath = Path.Combine(uploadPath, fileName);
+
+        using var client = new FtpClient(ftpHost)
+        {
+            Credentials = new NetworkCredential(ftpUser, ftpPass),
+            EncryptionMode = FtpEncryptionMode.None,
+            DataConnectionType = FtpDataConnectionType.AutoPassive
+        };
+
+        await client.ConnectAsync();
+
+        using var outStream = new FileStream(localPath, FileMode.Create);
+        bool success = await client.DownloadAsync(outStream, remotePath);
+
+        if (success)
+        {
+            ViewBag.Message = $"Archivo '{fileName}' descargado con éxito desde FTP.";
+        }
+        else
+        {
+            ViewBag.Message = "No se pudo descargar el archivo.";
+        }
+    }
+    catch (Exception ex)
+    {
+        ViewBag.Message = $"Error: {ex.Message}";
+    }
+
+    return View("Upload");
+}
