@@ -1,129 +1,54 @@
-using System.Net;
 using FileUploadDownloadApp.Model;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration.EnvironmentVariables;
-using Microsoft.VisualBasic;
-using Renci.SshNet.Sftp;
 using Renci.SshNet;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
-using System.Net.Mail;
-namespace FileUploadDownloadApp.Controllers{
-    public class HomeController : Controller{
-        private readonly IWebHostEnvironment _environment;
 
-        public HomeController(IWebHostEnvironment environment){
-            _environment = environment;
-        }
-
-        public IActionResult Index(){
-            return View();
-        }
-
-        // GET: File/Upload
-        public IActionResult Upload(){
-            return View();
-        }
-
-
-        /*
+namespace FileUploadDownloadApp.Controllers {
+    public class HomeController : Controller {
         private readonly SftpSettings _sftp;
-        public HomeController(IOptions<SftpSettings> options)
-        {
+
+        public HomeController(IOptions<SftpSettings> options) {
             _sftp = options.Value;
         }
-        
-        public void conectar()
-        {
-            using var client = new SftpClient(_sftp.Host, _sftp.User, _sftp.Password);
-            client.Connect();
-        }
-        */
 
-
-        // POST: File/Upload
-        [HttpPost]
-        public async Task<IActionResult> Upload(FileUploadViewModel model)
-        {
-            if (model.File != null && model.File.Length > 0){
-                //Define el folder de carga
-                string uploadPath = Path.Combine(_environment.WebRootPath, "uploads");
-                FileStream stream = null;
-                // Crea el folder si este no existe 
-                if (!Directory.Exists(uploadPath)){
-                    Directory.CreateDirectory(uploadPath);
-                }
-                // Generate the file path
-                string filePath = Path.Combine(uploadPath, model.File.FileName);
-                //Guarda el archivo en la ruta especiicada
-                if (System.IO.File.Exists(filePath)) {
-                    System.IO.File.Delete(filePath);
-                }
-                using (stream = new FileStream(filePath, FileMode.Create)){
-                    await model.File.CopyToAsync(stream);
-                }
-                /*
-                var isSftp = configuration.GetSection("Sftp:IsConnected").Get<bool>();
-                if (isSftp)
-                {
-                    var host = configuration.GetSection("Sftp:Host").Get<string>();
-                    var username = configuration.GetSection("Sftp:Username").Get<string>();
-                    var password = configuration.GetSection("Sftp:Password").Get<string>();
-                    _sftpClient = new SftpClient(host ?? "", username ?? "", password ?? "");
-                    _sftpClient.Connect();
-                }
-                */
-                var client = new SftpClient("https://localhost:7210/", "usrmon", "pwd"); //Extraer configuraciones de appsettings.json
-                    string pathUpload = "/home/usrmon/" + model.File.FileName;//Guardar con el nombre que el usuario sube
-                    string nameUpload = Path.GetFileName(pathUpload);
-                    client.Connect();
-                    client.UploadFile(stream,pathUpload);
-                    bool uploadFile = client.ListDirectory(pathUpload).Where(s => s.FullName == nameUpload).Count() > 0;
-
-                if (uploadFile)
-                {
-                    ViewBag.Message = "Archivo cargado en FTP.";
-                }
-                else 
-                {
-                    ViewBag.Message = "Error sl cargar archivo";
-                } 
-            }
+        public IActionResult Index() {
             return View();
         }
-        
 
-        // GET: File/ListFiles
-        public IActionResult ListFiles()
-        {
-            string uploadPath = Path.Combine(_environment.WebRootPath, "uploads");
-
-            if (!Directory.Exists(uploadPath))
-            {
-                return View(new List<string>());
-            }
-
-            var files = Directory.GetFiles(uploadPath).Select(Path.GetFileName).ToList();
-            return View(files);
+        public IActionResult Upload() {
+            return View();
         }
 
-        // GET: File/Download?filename=example.txt
-        public IActionResult Download(string filename)
-        {
-            if (string.IsNullOrEmpty(filename))
-            {
-                return Content("El archivo no ha sido cargado.");
+        [HttpPost]
+        public async Task<IActionResult> Upload(FileUploadViewModel model) {
+            if (model.File != null && model.File.Length > 0) {
+                try {
+                    using (var memoryStream = new MemoryStream()) {
+                        await model.File.CopyToAsync(memoryStream);
+                        memoryStream.Position = 0;
+
+                        using (var client = new SftpClient(_sftp.Host, _sftp.User, _sftp.Password)) {
+                            client.Connect();
+
+                            string remotePath = "/home/usrmon/" + model.File.FileName;
+                            client.UploadFile(memoryStream, remotePath, true);
+
+                            var exists = client.Exists(remotePath);
+                            ViewBag.Message = exists
+                                ? "Archivo cargado en SFTP correctamente."
+                                : "Error al verificar la carga en SFTP.";
+
+                            client.Disconnect();
+                        }
+                    }
+                } catch (Exception ex) {
+                    ViewBag.Message = $"Error durante la carga: {ex.Message}";
+                }
+            } else {
+                ViewBag.Message = "No se seleccionó ningún archivo.";
             }
 
-            string filePath = Path.Combine(_environment.WebRootPath, "uploads", filename);
-
-            if (!System.IO.File.Exists(filePath))
-            {
-                return Content("Archivo no encontrado.");
-            }
-
-            byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
-            return File(fileBytes, "application/octet-stream", filename);
+            return View();
         }
     }
 }
