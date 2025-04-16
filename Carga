@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Bloqueo de Ratón al Cargar</title>
+  <style>
+    #overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+      display: none;
+      cursor: wait;
+    }
+  </style>
+</head>
+<body>
+  <input type="file" id="fileInput">
+  <div id="overlay"></div>
+
+  <script>
+    const input = document.getElementById('fileInput');
+    const overlay = document.getElementById('overlay');
+
+    input.addEventListener('change', () => {
+      overlay.style.display = 'block';
+
+      // Simular carga de archivo (ej. subir al servidor)
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        alert('Archivo cargado');
+      }, 3000); // reemplaza con tu lógica real de carga
+    });
+  </script>
+</body>
+</html>
