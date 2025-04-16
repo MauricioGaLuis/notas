@@ -1,0 +1,108 @@
+controller
+public class ArchivoController : Controller
+{
+    private readonly ISftpService _sftpService;
+
+    public ArchivoController(ISftpService sftpService)
+    {
+        _sftpService = sftpService;
+    }
+
+    [HttpGet]
+    public IActionResult Subir()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public IActionResult ObtenerNombres()
+    {
+        var archivos = _sftpService.ListarArchivos(); // List<string>
+        return Json(archivos);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SubirArchivo(IFormFile archivo, bool sobreescribir = false)
+    {
+        if (archivo == null || archivo.Length == 0)
+            return Json(new { exito = false, mensaje = "Archivo no válido." });
+
+        var existe = _sftpService.ExisteArchivo(archivo.FileName);
+        if (existe && !sobreescribir)
+        {
+            return Json(new { exito = false, yaExiste = true });
+        }
+
+        using var stream = archivo.OpenReadStream();
+        await _sftpService.SubirArchivoAsync(archivo.FileName, stream, sobreescribir);
+
+        return Json(new { exito = true, mensaje = "Archivo subido correctamente." });
+    }
+}
+
+view
+@{
+    ViewData["Title"] = "Subir Archivo";
+}
+
+<h2>Subir Archivo</h2>
+
+<input type="file" id="archivoInput" />
+<button onclick="subirArchivo()">Subir</button>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    function subirArchivo() {
+        var input = $("#archivoInput")[0];
+        if (!input.files.length) {
+            alert("Selecciona un archivo");
+            return;
+        }
+
+        var archivo = input.files[0];
+
+        // 1. Consultar nombres existentes
+        $.post('/Archivo/ObtenerNombres', function (nombres) {
+            var sobreescribir = false;
+
+            if (nombres.includes(archivo.name)) {
+                if (!confirm("El archivo ya existe. ¿Deseas sobreescribirlo?")) {
+                    return;
+                }
+                sobreescribir = true;
+            }
+
+            // 2. Subir archivo
+            var formData = new FormData();
+            formData.append("archivo", archivo);
+            formData.append("sobreescribir", sobreescribir);
+
+            $.ajax({
+                url: '/Archivo/SubirArchivo',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    if (response.exito) {
+                        alert(response.mensaje);
+                    } else if (response.yaExiste) {
+                        alert("Archivo ya existe. No se subió.");
+                    } else {
+                        alert("Error: " + response.mensaje);
+                    }
+                }
+            });
+        });
+    }
+</script>
+
+interface
+
+public interface ISftpService
+{
+    List<string> ListarArchivos();
+    bool ExisteArchivo(string nombreArchivo);
+    Task SubirArchivoAsync(string nombreArchivo, Stream archivoStream, bool sobreescribir);
+}
+
