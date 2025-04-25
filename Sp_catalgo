@@ -1,0 +1,28 @@
+CREATE PROCEDURE sp_ActualizarCatalogo
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    BEGIN TRY
+        BEGIN TRAN;
+
+        -- Paso 1: Limpiar tabla de catálogo
+        DELETE FROM Catalogo;
+
+        -- Paso 2: Insertar los datos nuevos desde staging
+        INSERT INTO Catalogo (Id, Nombre, Descripcion, FechaActualizacion)
+        SELECT Id, Nombre, Descripcion, GETDATE()
+        FROM Catalogo_Staging;
+
+        -- Opcional: limpiar staging si ya no se necesita
+        TRUNCATE TABLE Catalogo_Staging;
+
+        COMMIT;
+    END TRY
+    BEGIN CATCH
+        ROLLBACK;
+
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH
+END;
