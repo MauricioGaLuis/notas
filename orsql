@@ -1,0 +1,47 @@
+public Task Execute(IJobExecutionContext context)
+{
+    if (!Variables.corriendo)
+    {
+        Variables.corriendo = true;
+        oracle = new OracleDB(Variables.stringConnOracle);
+
+        //Se llama al query que selecciona los datos que se ingresaran a la base de datos.
+        if (oracle.selectExecute(Variables.Propiedades["query"], null, ref dt))
+        {
+            if (dt != null && dt.Rows.Count > 0)
+            {
+                
+                ImprimeConsola(string.Format("Se encontraron {0}", dt.Rows.Count), Variables.SUCCESS);
+
+                sql = new SqlDB(Variables.stringConnSQL);
+                sql.Inserta_Registros(ref dt);
+                ImprimeConsola(string.Format("Se AGREGO CON EXITO"), Variables.SUCCESS);
+                // HACER LLAMADO A STORE SQL SERVER PARA INSERTAR
+
+                // REGISTRAR EL DEMONIO
+                sql.registra("DemonioMatrix");
+                 
+            }
+            else
+            {
+                ImprimeConsola("No se encontraron datos", Variables.ERROR);
+            }
+        }
+        else
+        {
+            ImprimeConsola("Error al obtener datos Oracle", Variables.ERROR);
+        }
+        Variables.corriendo = false;
+    }
+    else
+    {
+        ImprimeConsola("El job anterior seguia en ejecución", Variables.WARNING);
+    }
+    
+    ImprimeConsola("Fin de ciclo ", Variables.INFO);
+    this.ImprimeConsola("_________________________________", Variables.INFO);
+    
+    GC.GetTotalMemory(false);
+    GC.Collect();
+    return Task.FromResult(true);
+}
