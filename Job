@@ -41,3 +41,45 @@ public class Program
         await scheduler.ScheduleJob(job, trigger);
     }
 }
+
+//////////////
+public class LimpiezaJob : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        string connectionString = "Data Source=SERVIDOR;Initial Catalog=MiBaseDeDatos;Integrated Security=True;";
+        var limpieza = new LimpiezaService(connectionString);
+        await limpieza.EjecutarLimpiezaAsync();
+    }
+}
+///////////
+using System;
+using System.Data.SqlClient;
+using System.Threading.Tasks;
+
+public class LimpiezaService
+{
+    private readonly string _connectionString;
+
+    public LimpiezaService(string connectionString)
+    {
+        _connectionString = connectionString;
+    }
+
+    public async Task EjecutarLimpiezaAsync()
+    {
+        var fechaLimite = DateTime.Now.AddDays(-30);
+
+        string sql = "DELETE FROM MiTabla WHERE FechaCreacion < @FechaLimite";
+
+        using (SqlConnection conn = new SqlConnection(_connectionString))
+        using (SqlCommand cmd = new SqlCommand(sql, conn))
+        {
+            cmd.Parameters.AddWithValue("@FechaLimite", fechaLimite);
+
+            await conn.OpenAsync();
+            int filasAfectadas = await cmd.ExecuteNonQueryAsync();
+            Console.WriteLine($"Limpieza completada. Registros eliminados: {filasAfectadas}");
+        }
+    }
+}
