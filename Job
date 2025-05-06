@@ -1,0 +1,43 @@
+using Quartz;
+using System;
+using System.Threading.Tasks;
+
+public class LimpiezaJob : IJob
+{
+    public Task Execute(IJobExecutionContext context)
+    {
+        Console.WriteLine("Ejecutando limpieza a las " + DateTime.Now);
+        // Aquí pones tu lógica de limpieza de la base de datos.
+        return Task.CompletedTask;
+    }
+}
+
+/////////
+
+using Quartz;
+using Quartz.Impl;
+using System.Threading.Tasks;
+
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // Crear el planificador
+        StdSchedulerFactory factory = new StdSchedulerFactory();
+        IScheduler scheduler = await factory.GetScheduler();
+        await scheduler.Start();
+
+        // Crear el job
+        IJobDetail job = JobBuilder.Create<LimpiezaJob>()
+            .WithIdentity("limpiezaJob", "grupo1")
+            .Build();
+
+        // Crear el trigger para las 00:00 todos los días
+        ITrigger trigger = TriggerBuilder.Create()
+            .WithIdentity("triggerLimpieza", "grupo1")
+            .WithSchedule(CronScheduleBuilder.DailyAtHourAndMinute(0, 0))
+            .Build();
+
+        await scheduler.ScheduleJob(job, trigger);
+    }
+}
