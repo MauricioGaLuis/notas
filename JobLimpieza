@@ -1,0 +1,68 @@
+
+//dotnet add package Quartz
+dotnet add package Dapper
+dotnet add package System.Data.SqlClient
+//program.cs
+
+using Quartz;
+using Quartz.Impl;
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        StdSchedulerFactory factory = new StdSchedulerFactory();
+        IScheduler scheduler = await factory.GetScheduler();
+
+        await scheduler.Start();
+
+        IJobDetail job = JobBuilder.Create<LimpiezaBaseDatosJob>()
+            .WithIdentity("limpiezaJob", "grupo1")
+            .Build();
+
+        ITrigger trigger = TriggerBuilder.Create()
+            .WithIdentity("limpiezaTrigger", "grupo1")
+            .StartNow()
+            .WithSimpleSchedule(x => x
+                .WithIntervalInHours(24)
+                .RepeatForever())
+            .Build();
+
+        await scheduler.ScheduleJob(job, trigger);
+
+        Console.WriteLine("Scheduler iniciado. Presiona una tecla para salir...");
+        Console.ReadKey();
+        await scheduler.Shutdown();
+    }
+}
+
+////////////////
+//codigo job
+using Quartz;
+using System;
+using System.Data.SqlClient;
+using System.Threading.Tasks;
+using Dapper;
+
+public class LimpiezaBaseDatosJob : IJob
+{
+    public async Task Execute(IJobExecutionContext context)
+    {
+        Console.WriteLine($"[Limpieza] Ejecutando limpieza: {DateTime.Now}");
+
+        string connectionString = "Server=TU_SERVIDOR;Database=TU_BASE;User Id=TU_USUARIO;Password=TU_PASSWORD;";
+
+        using var connection = new SqlConnection(connectionString);
+        string query = @"DELETE FROM Logs WHERE Fecha < DATEADD(day, -30, GETDATE());";
+
+        try
+        {
+            int filasAfectadas = await connection.ExecuteAsync(query);
+            Console.WriteLine($"Se eliminaron {filasAfectadas} registros antiguos.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error durante la limpieza: {ex.Message}");
+        }
+    }
+}
