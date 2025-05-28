@@ -1,0 +1,201 @@
+
+
+---
+
+✅ Estructura en ASP.NET MVC sin API
+
+
+---
+
+🔹 1. Modelo (VentaPetroleo.cs)
+
+public class VentaPetroleo
+{
+    public int Anio { get; set; }
+    public float JetFuel { get; set; }
+    public float DutyFreeDiesel { get; set; }
+    public float Petrol { get; set; }
+    public float Diesel { get; set; }
+    public float GasOil { get; set; }
+    public float Total { get; set; }
+}
+
+
+---
+
+🔹 2. Controlador (VentasController.cs)
+
+using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+
+public class VentasController : Controller
+{
+    private readonly IConfiguration _config;
+    public VentasController(IConfiguration config)
+    {
+        _config = config;
+    }
+
+    public IActionResult Index()
+    {
+        var ventas = new List<VentaPetroleo>();
+        using (var connection = new SqlConnection(_config.GetConnectionString("DefaultConnection")))
+        {
+            var command = new SqlCommand("SELECT * FROM ventas_petroleo ORDER BY anio", connection);
+            connection.Open();
+            var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                ventas.Add(new VentaPetroleo
+                {
+                    Anio = reader.GetInt32(0),
+                    JetFuel = (float)reader.GetDouble(1),
+                    DutyFreeDiesel = (float)reader.GetDouble(2),
+                    Petrol = (float)reader.GetDouble(3),
+                    Diesel = (float)reader.GetDouble(4),
+                    GasOil = (float)reader.GetDouble(5),
+                    Total = (float)reader.GetDouble(6)
+                });
+            }
+        }
+
+        return View(ventas);
+    }
+}
+
+
+---
+
+🔹 3. Vista Razor (Views/Ventas/Index.cshtml)
+
+@model List<VentaPetroleo>
+
+@{
+    ViewData["Title"] = "Gráfica de Ventas";
+    var categorias = new[] { "Jet fuel", "Duty-free diesel", "Petrol", "Diesel", "Gas oil" };
+    var colores = new[] { "#7cb5ec", "#434348", "#90ed7d" };
+}
+
+<div id="container" style="height: 600px;"></div>
+
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script>
+    const categorias = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(categorias));
+
+    const series = [];
+    const datos = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model));
+
+    datos.forEach((item, index) => {
+        series.push({
+            type: 'column',
+            name: item.anio.toString(),
+            data: [item.jetFuel, item.dutyFreeDiesel, item.petrol, item.diesel, item.gasOil]
+        });
+    });
+
+    const promedio = categorias.map((_, i) => {
+        const suma = datos.reduce((acc, item) => {
+            const valores = [item.jetFuel, item.dutyFreeDiesel, item.petrol, item.diesel, item.gasOil];
+            return acc + valores[i];
+        }, 0);
+        return +(suma / datos.length).toFixed(2);
+    });
+
+    series.push({
+        type: 'line',
+        step: 'center',
+        name: 'Average',
+        data: promedio,
+        marker: {
+            lineWidth: 2,
+            lineColor: Highcharts.getOptions().colors[3],
+            fillColor: 'white'
+        }
+    });
+
+    const pieData = datos.map((item, index) => ({
+        name: item.anio.toString(),
+        y: item.total,
+        color: Highcharts.getOptions().colors[index]
+    }));
+
+    series.push({
+        type: 'pie',
+        name: 'Total',
+        data: pieData,
+        center: [75, 65],
+        size: 100,
+        innerSize: '70%',
+        showInLegend: false,
+        dataLabels: {
+            enabled: false
+        }
+    });
+
+    Highcharts.chart('container', {
+        title: {
+            text: 'Sales of petroleum products March, Norway'
+        },
+        xAxis: {
+            categories: categorias
+        },
+        yAxis: {
+            title: {
+                text: 'Million liters'
+            }
+        },
+        tooltip: {
+            valueSuffix: ' million liters'
+        },
+        plotOptions: {
+            series: {
+                borderRadius: '25%'
+            }
+        },
+        series: series
+    });
+</script>
+
+
+---
+
+🔹 4. Cadena de conexión (appsettings.json)
+
+"ConnectionStrings": {
+  "DefaultConnection": "Server=localhost;Database=TuBaseDeDatos;User Id=tuUsuario;Password=tuClave;"
+}
+
+
+---
+
+Modelo: representa los datos (VentaPetroleo.cs)
+
+Vista: renderiza el gráfico (Index.cshtml)
+
+Controlador: obtiene los datos y los pasa a la vista (VentasController.cs)
+
+MiProyecto/
+│
+├── Controllers/
+│   └── VentasController.cs
+│
+├── Models/
+│   └── VentaPetroleo.cs
+│
+├── Views/
+│   └── Ventas/
+│       └── Index.cshtml
+│   └── Shared/
+│       └── _Layout.cshtml
+│       └── _ViewStart.cshtml
+│
+├── wwwroot/
+│   ├── css/
+│   ├── js/
+│   └── lib/        ← (Bootstrap, jQuery, etc.)
+│
+├── appsettings.json
+├── Program.cs
+├── Startup.cs      ← Si usas .NET Core 3.1 / .NET 5
+├── MiProyecto.csproj
