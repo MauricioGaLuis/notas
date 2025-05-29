@@ -1,0 +1,161 @@
+USE [Sistemas]
+GO
+/****** Object:  StoredProcedure [dbo].[getRecargasCadena]    Script Date: 29/05/2025 03:31:12 p. m. ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Alejandro Ramirez Pinzón
+-- Create date: 2020-03-09
+-- Description:	Recargas por cadena azul
+-- =============================================
+--exec [dbo].[getRecargasCadena] '2015', '066'
+ALTER PROCEDURE [dbo].[getRecargasCadena]
+	@CHANNEL varchar(3),
+	@FI_BANK_ID varchar(4)
+AS
+BEGIN
+	SET NOCOUNT ON 
+	--added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+	
+	--DECLARE @CHANNEL varchar(3) = '003', @FI_BANK_ID varchar(4) = ''
+
+	DECLARE @FECHA_HORA DATETIME = GETDATE()
+	DECLARE @FECHA DATE = @FECHA_HORA
+	DECLARE @HORA_ACTUAL TIME(0) = CAST(CAST(@FECHA_HORA AS TIME(0)) AS varchar(5))
+	DECLARE @H INT = DATEPART(hour,@HORA_ACTUAL)
+	DECLARE @HORA_INICIO TIME(0) = DATEADD(MINUTE,-61,@HORA_ACTUAL)
+
+	IF(@CHANNEL = '008')
+	BEGIN
+		--------HISOCK
+		SELECT CAST(CAST(CONCAT(HORA,':00') AS TIME(0)) AS varchar(5)) HORA,ISNULL(TP.Total,0) TTP, ISNULL(TP.Monto,0) MP,
+		ISNULL(TR.Total,0) TTR, ISNULL(TR.Monto,0) MR
+		FROM [MonitoreoAplicativo].dbo.Grafica_Horas H WITH(NOLOCK) 
+		LEFT JOIN (
+			SELECT 
+				DATEPART(HOUR,FECHA_PROCESAMIENTO) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+			FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND BANK_ID= @FI_BANK_ID AND FECHA_PROCESAMIENTO >= @FECHA AND ID_ESTATUS = 2
+			GROUP BY DATEPART(HOUR,FECHA_PROCESAMIENTO)
+		) TP ON HORA = TP.horaRecarga
+		LEFT JOIN (
+			SELECT 
+				DATEPART(HOUR,FECHA_RECARGA) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+			FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND BANK_ID= @FI_BANK_ID AND FECHA_RECARGA >= @FECHA --AND ID_ESTATUS = 1
+			GROUP BY DATEPART(HOUR,FECHA_RECARGA)
+		) TR ON HORA = TR.horaRecarga
+		ORDER BY 1
+
+		IF(@H = 0)
+		BEGIN
+			SELECT CAST(CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) AS varchar(5)) HORA,ISNULL(TP.Total,0) TTP, ISNULL(TP.Monto,0) MP,
+			ISNULL(TR.Total,0) TTR, ISNULL(TR.Monto,0) MR
+			FROM [MonitoreoAplicativo].dbo.Grafica_Horas H WITH(NOLOCK) 
+			INNER JOIN [MonitoreoAplicativo].dbo.Grafica_Minutos M WITH(NOLOCK) ON 1=1
+			LEFT JOIN (
+				SELECT 
+					CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND BANK_ID= @FI_BANK_ID AND FECHA_PROCESAMIENTO >= @FECHA AND ID_ESTATUS = 2
+				GROUP BY CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5))
+			) TP ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TP.horaRecarga
+			LEFT JOIN (
+
+				SELECT 
+					CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND BANK_ID= @FI_BANK_ID AND FECHA_RECARGA >= @FECHA--AND ID_ESTATUS = 1
+				GROUP BY CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5))
+			) TR ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TR.horaRecarga
+			WHERE CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) <= @HORA_ACTUAL
+			ORDER BY 1
+		END
+		ELSE
+		BEGIN
+			SELECT CAST(CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) AS varchar(5)) HORA,ISNULL(TP.Total,0) TTP, ISNULL(TP.Monto,0) MP,
+			ISNULL(TR.Total,0) TTR, ISNULL(TR.Monto,0) MR
+			FROM [MonitoreoAplicativo].dbo.Grafica_Horas H WITH(NOLOCK) 
+			INNER JOIN [MonitoreoAplicativo].dbo.Grafica_Minutos M WITH(NOLOCK) ON 1=1
+			LEFT JOIN (
+				SELECT 
+					CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND BANK_ID= @FI_BANK_ID AND FECHA_PROCESAMIENTO >= @FECHA AND ID_ESTATUS = 2
+				GROUP BY CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5))
+			) TP ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TP.horaRecarga
+			LEFT JOIN (
+				SELECT 
+					CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND BANK_ID= @FI_BANK_ID AND FECHA_RECARGA >= @FECHA--AND ID_ESTATUS = 1
+				GROUP BY CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5))
+			) TR ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TR.horaRecarga
+			WHERE CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) >= @HORA_INICIO AND CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) <= @HORA_ACTUAL
+			ORDER BY 1
+
+		END
+
+	END
+	ELSE
+	BEGIN
+		------------WS
+		SELECT CAST(CAST(CONCAT(HORA,':00') AS TIME(0)) AS varchar(5)) HORA,ISNULL(TP.Total,0) TTP, ISNULL(TP.Monto,0) MP,
+		ISNULL(TR.Total,0) TTR, ISNULL(TR.Monto,0) MR
+		FROM [MonitoreoAplicativo].dbo.Grafica_Horas H WITH(NOLOCK) 
+		LEFT JOIN (
+			SELECT 
+				DATEPART(HOUR,FECHA_PROCESAMIENTO) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+			FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND FECHA_PROCESAMIENTO >= @FECHA AND ID_ESTATUS = 2
+			GROUP BY DATEPART(HOUR,FECHA_PROCESAMIENTO)
+		) TP ON HORA = TP.horaRecarga
+		LEFT JOIN (
+			SELECT 
+				DATEPART(HOUR,FECHA_RECARGA) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+			FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND FECHA_RECARGA >= @FECHA --AND ID_ESTATUS = 1
+			GROUP BY DATEPART(HOUR,FECHA_RECARGA)
+		) TR ON HORA = TR.horaRecarga
+		ORDER BY 1
+
+		IF(@H=0)
+		BEGIN
+			SELECT CAST(CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) AS varchar(5)) HORA,ISNULL(TP.Total,0) TTP, ISNULL(TP.Monto,0) MP,
+			ISNULL(TR.Total,0) TTR, ISNULL(TR.Monto,0) MR
+			FROM [MonitoreoAplicativo].dbo.Grafica_Horas H WITH(NOLOCK) 
+			INNER JOIN [MonitoreoAplicativo].dbo.Grafica_Minutos M WITH(NOLOCK) ON 1=1
+			LEFT JOIN (
+				SELECT 
+					CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND FECHA_PROCESAMIENTO >= @FECHA AND ID_ESTATUS = 2
+				GROUP BY CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5))
+			) TP ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TP.horaRecarga
+			LEFT JOIN (
+				SELECT 
+					CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND FECHA_RECARGA >= @FECHA --AND ID_ESTATUS = 1
+				GROUP BY CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5))
+			) TR ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TR.horaRecarga
+			WHERE CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) <= @HORA_ACTUAL
+			ORDER BY 1
+		END
+		ELSE
+		BEGIN
+			SELECT CAST(CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) AS varchar(5)) HORA,ISNULL(TP.Total,0) TTP, ISNULL(TP.Monto,0) MP,
+			ISNULL(TR.Total,0) TTR, ISNULL(TR.Monto,0) MR
+			FROM [MonitoreoAplicativo].dbo.Grafica_Horas H WITH(NOLOCK) 
+			INNER JOIN [MonitoreoAplicativo].dbo.Grafica_Minutos M WITH(NOLOCK) ON 1=1
+			LEFT JOIN (
+				SELECT 
+					CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND FECHA_PROCESAMIENTO >= @FECHA AND ID_ESTATUS = 2
+				GROUP BY CAST(CAST(FECHA_PROCESAMIENTO AS time(0)) AS varchar(5))
+			) TP ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TP.horaRecarga
+			LEFT JOIN (
+				SELECT 
+					CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5)) horaRecarga, isnull(count(t.CHANNEL),0)Total, ISNULL(SUM(MONTO_RECARGA),0) Monto
+				FROM [Sistemas].[dbo].[ATT_TBL_TRAN_RECARGA] T with(nolock) WHERE CHANNEL = @CHANNEL AND FECHA_RECARGA >= @FECHA --AND ID_ESTATUS = 1
+				GROUP BY CAST(CAST(FECHA_RECARGA AS time(0)) AS varchar(5))
+			) TR ON CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) = TR.horaRecarga
+			WHERE CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) >= @HORA_INICIO AND CAST(CONCAT(HORA,':',MINUTO) AS TIME(0)) <= @HORA_ACTUAL
+			ORDER BY 1
+		END
+	END
+END
