@@ -1,0 +1,60 @@
+function renderSelectChange() {
+    $("#selectCadenas option").remove();
+    $("#selectCadenas").append('<option value="-1" selected disabled>Selecciona una cadena</option>');
+    $("#selectCadenas").append('<option value="ALL">Todos</option>'); // NUEVO
+
+    if ($("#selectOrigen").val() == "008") {
+        for (var x = 0; x < selectHS.length; x++) {
+            $("#selectCadenas").append('<option value="' + selectHS[x].fs_Bank_id + '"' + (selectHS[x].select ? 'selected' : '') + '>' + selectHS[x].fs_Channel_Name + '</option>');
+        }
+    } else {
+        for (var x = 0; x < selectWS.length; x++) {
+            $("#selectCadenas").append('<option value="' + selectWS[x].channel + '"' + (selectWS[x].select ? 'selected' : '') + '>' + selectWS[x].fs_Channel_Name + '</option>');
+        }
+    }
+}
+//////////
+function renderSelect() {
+    $("#selectCadenas").append('<option value="ALL">Todos</option>'); // NUEVO
+
+    if ($("#selectOrigen").val() == "008") {
+        for (var x = 0; x < selectHS.length; x++) {
+            $("#selectCadenas").append('<option value="' + selectHS[x].fs_Bank_id + '"' + (selectHS[x].select ? 'selected' : '') + '>' + selectHS[x].fs_Channel_Name + '</option>');
+        }
+    } else {
+        for (var x = 0; x < selectWS.length; x++) {
+            $("#selectCadenas").append('<option value="' + selectWS[x].channel + '"' + (selectWS[x].select ? 'selected' : '') + '>' + selectWS[x].fs_Channel_Name + '</option>');
+        }
+    }
+}
+////////////
+<select id="selectCadenas" multiple class="form-control">
+const seleccionados = $("#selectCadenas").val(); // array
+
+
+if (!filter.primera) {
+    const origen = $("#selectOrigen").val();
+    const cadena = $("#selectCadenas").val();
+
+    if (origen === "008") {
+        filter.channel = "008";
+        filter.bankId = (cadena === "ALL" || cadena === "-1") ? "" : cadena;
+    } else {
+        filter.channel = (cadena === "ALL" || cadena === "-1") ? "" : cadena;
+        filter.bankId = '';
+    }
+}
+
+if (filter.primera || ($("#selectCadenas").val() !== "-1" && $("#selectCadenas").val() !== null)) {
+    ajaxRequest(
+        getGraficasURL,
+        "POST",
+        renderGraficas,
+        filter,
+        "application/x-www-form-urlencoded; charset=UTF-8;",
+        error
+    );
+} else {
+    $("#refresh").html("Seleccione una cadena");
+}
+  
