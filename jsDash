@@ -44,3 +44,15 @@ function renderSelectChange() {
         }
     }
 }
+///////////////
+ <div class="col-md-2">
+     <select id="selectOrigen" onchange="renderSelectChange();" class="form-control">
+         <option value="008" selected>Hisock</option>
+         <option value="000">Web Service</option>
+         <!--
+         <option value="008" selected>Hisock</option>
+         <option value="superChip">COMPRA DE SUPER CHIP </option>
+         <option value="activacionSIM">ACTIVACION DE SIM CON BENEFICIO</option>
+         -->
+     </select>
+ </div>
